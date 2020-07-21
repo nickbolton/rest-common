@@ -53,35 +53,36 @@ public class AppConfig {
   }
 
   public List<AppConfigValue> toValues() {
-    if (valueMap.size() > 0) {
+    final Set<String> ignoredFields = new HashSet<String>(Arrays.asList("fieldMap", "valueMap"));
+    final Field[] declaredFields = getClass().getDeclaredFields();
+    if (valueMap.size() >= (declaredFields.length - ignoredFields.size())) {
       return new LinkedList(valueMap.values());
     }
-    final Set<String> ignoredFields = new HashSet<String>(Arrays.asList("fieldMap", "valueMap"));
     List<AppConfigValue> result = new LinkedList<>();
-      for (Field field : getClass().getDeclaredFields()) {
-        if (ignoredFields.contains(field.getName())) {
-          continue;
-        }
-        try {
-          Object fieldValue = field.get(this);
-          AppConfigValue value = new AppConfigValue();
-          if (fieldValue != null) {
-            value.setValue(fieldValue);
-          } else {
-            if (field.getType().equals(Long.class)) {
-              value.setValue(0l);
-            } else if (field.getType().equals(Boolean.class)) {
-              value.setValue(false);
-            } else if (field.getType().equals(Integer.class)) {
-              value.setValue(0);
-            }
-          }
-          value.setName(field.getName());
-          result.add(value);
-        } catch (IllegalAccessException e) {
-        }
+    for (Field field : declaredFields) {
+      if (ignoredFields.contains(field.getName())) {
+        continue;
       }
-      return result;
+      try {
+        Object fieldValue = field.get(this);
+        AppConfigValue value = new AppConfigValue();
+        if (fieldValue != null) {
+          value.setValue(fieldValue);
+        } else {
+          if (field.getType().equals(Long.class)) {
+            value.setValue(0l);
+          } else if (field.getType().equals(Boolean.class)) {
+            value.setValue(false);
+          } else if (field.getType().equals(Integer.class)) {
+            value.setValue(0);
+          }
+        }
+        value.setName(field.getName());
+        result.add(value);
+      } catch (IllegalAccessException e) {
+      }
+    }
+    return result;
   }
 
   private void buildFieldMapIfNecessary() {

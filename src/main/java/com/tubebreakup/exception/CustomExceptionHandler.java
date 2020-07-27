@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.oauth2.common.exceptions.InvalidGrantException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -31,7 +32,16 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
         new Date(), ex.getMessage(), request.getDescription(false)));
     return new ResponseEntity<ExceptionResponse>(response, status);
   }
-  
+
+  @ExceptionHandler(Exception.class)
+  @ResponseBody
+  public final ResponseEntity<ExceptionResponse> handleFailedInvalidGrant(InvalidGrantException ex, WebRequest request) {
+    HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+    ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), CommonErrors.UNKNOWN.value(),
+            new Date(), ex.getMessage(), request.getDescription(false)));
+    return new ResponseEntity<ExceptionResponse>(response, status);
+  }
+
   @Override
   protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpHeaders headers,
       HttpStatus status, WebRequest request) {

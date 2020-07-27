@@ -12,7 +12,7 @@ public class ExceptionError {
 	@JsonProperty private Date timestamp;
 	@JsonProperty private String message;
 	@JsonProperty private String detail;
-	protected ExceptionError(Integer status, Integer errorCode, Date timestamp, String message, String detail) {
+	public ExceptionError(Integer status, Integer errorCode, Date timestamp, String message, String detail) {
 		super();
 		this.status = status;
 		this.errorCode = errorCode;

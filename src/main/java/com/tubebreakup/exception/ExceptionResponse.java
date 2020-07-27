@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 public class ExceptionResponse {
 	@JsonProperty
 	private ExceptionError error;
-	protected ExceptionResponse(ExceptionError error) {
+	public ExceptionResponse(ExceptionError error) {
 		super();
 		this.error = error;
 	}

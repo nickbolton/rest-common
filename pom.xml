@@ -6,7 +6,7 @@
 
     <groupId>com.tubebreakup</groupId>
     <artifactId>rest-common</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.3</version>
 
     <parent>
         <groupId>org.springframework.boot</groupId>

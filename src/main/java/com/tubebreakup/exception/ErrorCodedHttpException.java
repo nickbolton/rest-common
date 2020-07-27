@@ -2,6 +2,7 @@ package com.tubebreakup.exception;
 
 import com.tubebreakup.model.NameProvider;
 import lombok.Getter;
+import lombok.Setter;
 import org.springframework.http.HttpStatus;
 
 @Getter
@@ -10,6 +11,7 @@ public class ErrorCodedHttpException extends RuntimeException {
     private static final long serialVersionUID = -2249921507621536125L;
     private HttpStatus httpStatus;
     private ErrorCode errorCode;
+    @Setter private Boolean isLogged = true;
 
     private static String buildMessage(NameProvider nameProvider, String defaultMessage) {
         return nameProvider != null ? String.format("(%s) %s", nameProvider.getEmail(), defaultMessage) : defaultMessage;

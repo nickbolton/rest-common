@@ -67,7 +67,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
   @ResponseBody
   public final ResponseEntity<ExceptionResponse> handleErrorCodedException(ErrorCodedHttpException ex,
       WebRequest request) {
-    logger.error("\n\nErrorCodedHttpException: " + request + "\n", ex);
+    if (ex.getIsLogged()) {
+      logger.error("\n\nErrorCodedHttpException: " + request + "\n", ex);
+    }
     String message = ex.getMessage() != null ? ex.getMessage() : ex.getErrorCode().message();
     HttpStatus status = ex.getHttpStatus();
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), ex.getErrorCode().value(),

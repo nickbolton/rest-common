@@ -33,7 +33,7 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     return new ResponseEntity<ExceptionResponse>(response, status);
   }
 
-  @ExceptionHandler(Exception.class)
+  @ExceptionHandler(InvalidGrantException.class)
   @ResponseBody
   public final ResponseEntity<ExceptionResponse> handleFailedInvalidGrant(InvalidGrantException ex, WebRequest request) {
     HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;

@@ -1,5 +1,6 @@
 package com.tubebreakup.model;
 
+import com.tubebreakup.model.config.AppConfig;
 import com.tubebreakup.model.config.AppConfigManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +18,6 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
   @Autowired
   protected CacheManager cacheManager;
 
-  @Autowired
-  protected AppConfigManager appConfigManager;
-
   protected abstract Cache getCache();
 
   protected abstract Optional<T> _findById(String id);
@@ -28,11 +26,13 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
 
   protected abstract List<T> _findAll();
 
+  protected abstract AppConfig getAppConfig();
+
   public Optional<T> findById(String id) {
     if (!StringUtils.hasLength(id)) {
       return Optional.empty();
     }
-    if (!appConfigManager.getAppConfig().getEntityCacheEnabled()) {
+    if (!getAppConfig().getEntityCacheEnabled()) {
       log.debug("CACHE DISABLED {}", id);
       return _fetchById(id);
     }

@@ -7,36 +7,36 @@ import java.util.Date;
 import java.util.List;
 
 @Component
-public class AppConfigManager {
+public class AppConfigManager<T extends AppConfig> {
 
 	@Autowired
 	private AppConfigValueRepository appConfigValueRepository;
 
 	private transient Long lastFetchTime = 0L;
 
-	private AppConfig appConfig = null;
+	private T appConfig = null;
 
-	public void initialize() {
-		fetchAppConfig();
+	public void initialize(Class<T> clazz) {
+		fetchAppConfig(clazz);
 	}
 
-	public AppConfig getAppConfig() {
+	public T getAppConfig(Class<T> clazz) {
 		Long elapsedTime = new Date().getTime() - lastFetchTime;
 		Boolean needsFetch = (appConfig == null) || (elapsedTime > appConfig.getConfigTtl());
 		if (needsFetch) {
-			fetchAppConfig();
+			fetchAppConfig(clazz);
 		}
 		return appConfig;
 	}
 
-	public void saveAppConfig(AppConfig updatedAppConfig) {
+	public void saveAppConfig(T updatedAppConfig) {
 		List<AppConfigValue> values = updatedAppConfig.toValues();
 		appConfigValueRepository.saveAll(values);
 		appConfig = updatedAppConfig;
 	}
 
-	private void fetchAppConfig() {
-		appConfig = new AppConfig();
+	private void fetchAppConfig(Class<T> clazz) {
+		appConfig = getInstanceOfT(clazz);
 		List<AppConfigValue> values = appConfigValueRepository.findAll();
 		if (values.size() <= 0) {
 			values = appConfig.toValues();
@@ -44,6 +44,14 @@ public class AppConfigManager {
 		}
 		for (AppConfigValue value: values) {
 			appConfig.setValue(value);
+		}
+	}
+
+	private T getInstanceOfT(Class<T> aClass) {
+		try {
+			return aClass.getDeclaredConstructor().newInstance();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 	}
 }

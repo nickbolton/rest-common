@@ -41,19 +41,28 @@ abstract public class AppConfig {
       return;
     }
     try {
+      String fieldName = field.getName();
+      String properName = fieldName.substring(0, 1).toUpperCase() + (fieldName.length() > 1 ? fieldName.substring(1) : "");
+      String getterName = "set" + properName;
+
       if (field.getType().equals(Long.class)) {
-        field.set(this, value.longValue());
+        Method setter = getClass().getMethod(getterName, Long.class);
+        setter.invoke(this, value.longValue());
       } else if (field.getType().equals(Boolean.class)) {
-        field.set(this, value.booleanValue());
+        Method setter = getClass().getMethod(getterName, Boolean.class);
+        setter.invoke(this, value.booleanValue());
       } else if (field.getType().equals(String.class)) {
-        field.set(this, value.getValue());
+        Method setter = getClass().getMethod(getterName, String.class);
+        setter.invoke(this, value.getValue());
       } else if (field.getType().equals(Integer.class)) {
-        field.set(this, value.integerValue());
+        Method setter = getClass().getMethod(getterName, Integer.class);
+        setter.invoke(this, value.integerValue());
       } else {
         return;
       }
       valueMap.put(field.getName(), value);
-    } catch (IllegalAccessException e) {
+    } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+      e.printStackTrace();
     }
   }
 
@@ -86,7 +95,6 @@ abstract public class AppConfig {
         Method sourceGetter = getClass().getMethod(getterName);
         Object fieldValue = sourceGetter.invoke(this);
         AppConfigValue value = new AppConfigValue();
-        System.out.println(String.format("1 %s = %s", value.getName(), value.getValue()));
         if (fieldValue != null) {
           value.setValue(fieldValue);
         } else {
@@ -98,7 +106,6 @@ abstract public class AppConfig {
             value.setValue(0);
           }
         }
-        System.out.println(String.format("2 %s = %s", value.getName(), value.getValue()));
         value.setName(field.getName());
         result.add(value);
       } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {

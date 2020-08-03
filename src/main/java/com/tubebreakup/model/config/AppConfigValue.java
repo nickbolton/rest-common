@@ -23,7 +23,8 @@ public class AppConfigValue extends BaseModel {
 
     public Integer integerValue() {
         try {
-            return Integer.parseInt(value);
+            Integer result = Integer.parseInt(value);
+            return result;
         } catch (NumberFormatException e) {
             return 0;
         }
@@ -31,7 +32,8 @@ public class AppConfigValue extends BaseModel {
 
     public Long longValue() {
         try {
-            return Long.parseLong(value);
+            Long result = Long.parseLong(value);
+            return result;
         } catch (NumberFormatException e) {
             return 0l;
         }
@@ -39,7 +41,8 @@ public class AppConfigValue extends BaseModel {
 
     public Boolean booleanValue() {
         try {
-            return Boolean.parseBoolean(value);
+            Boolean result = Boolean.parseBoolean(value);
+            return result;
         } catch (NumberFormatException e) {
             return false;
         }

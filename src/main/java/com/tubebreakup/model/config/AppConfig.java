@@ -1,27 +1,32 @@
 package com.tubebreakup.model.config;
 
+import com.tubebreakup.exception.CommonErrors;
+import com.tubebreakup.exception.ErrorCodedHttpException;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.http.HttpStatus;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 
 @Getter
 @Setter
-public class AppConfig {
+abstract public class AppConfig {
 
-  private Boolean httpLoggingEnabled = false;
-  private Long configTtl = 15l; // ttl in seconds
-  private Long registrationTokenExpiryMinutes = 1440l; // 24 hours
-  private Long resetPasswordTokenExpiryMinutes = 1440l; // 24 hours
-  private Long invitationTokenExpiryMinutes = 43200l; // 1 month
-  private Long trialExpiryMinutes = 43200l; // 1 month
-  private Long linkTokenExpiryMinutes = 43200l; // 1 month
-  private Boolean initializedDatabase = false;
-  private Boolean entityCacheEnabled = true;
-  private String webhookEndpointId = null;
-  private Boolean debugTime = false;
-  private Boolean mailDisabled = false;
+  protected Boolean httpLoggingEnabled = false;
+  protected Long configTtl = 15l; // ttl in seconds
+  protected Long registrationTokenExpiryMinutes = 1440l; // 24 hours
+  protected Long resetPasswordTokenExpiryMinutes = 1440l; // 24 hours
+  protected Long invitationTokenExpiryMinutes = 43200l; // 1 month
+  protected Long trialExpiryMinutes = 43200l; // 1 month
+  protected Long linkTokenExpiryMinutes = 43200l; // 1 month
+  protected Boolean initializedDatabase = false;
+  protected Boolean entityCacheEnabled = true;
+  protected String webhookEndpointId = null;
+  protected Boolean debugTime = false;
+  protected Boolean mailDisabled = false;
 
   private Map<String, AppConfigValue> valueMap = new HashMap<>();
   private Map<String, Field> fieldMap = new HashMap<>();
@@ -52,20 +57,36 @@ public class AppConfig {
     }
   }
 
+  private List<Field> getAllFields() {
+    final Field[] thisDeclaredFields = getClass().getDeclaredFields();
+    final Field[] superDeclaredFields = AppConfig.class.getDeclaredFields();
+    final List<Field> allFields = new LinkedList<>();
+    allFields.addAll(Arrays.asList(thisDeclaredFields));
+    allFields.addAll(Arrays.asList(superDeclaredFields));
+    return allFields;
+  }
+
   public List<AppConfigValue> toValues() {
     final Set<String> ignoredFields = new HashSet<String>(Arrays.asList("fieldMap", "valueMap"));
-    final Field[] declaredFields = getClass().getDeclaredFields();
-    if (valueMap.size() >= (declaredFields.length - ignoredFields.size())) {
+    final List<Field> allFields = getAllFields();
+    if (valueMap.size() >= (allFields.size() - ignoredFields.size())) {
       return new LinkedList(valueMap.values());
     }
     List<AppConfigValue> result = new LinkedList<>();
-    for (Field field : declaredFields) {
+    for (Field field : allFields) {
       if (ignoredFields.contains(field.getName())) {
         continue;
       }
       try {
-        Object fieldValue = field.get(this);
+
+        String fieldName = field.getName();
+        String properName = fieldName.substring(0, 1).toUpperCase() + (fieldName.length() > 1 ? fieldName.substring(1) : "");
+        String getterName = "get" + properName;
+
+        Method sourceGetter = getClass().getMethod(getterName);
+        Object fieldValue = sourceGetter.invoke(this);
         AppConfigValue value = new AppConfigValue();
+        System.out.println(String.format("1 %s = %s", value.getName(), value.getValue()));
         if (fieldValue != null) {
           value.setValue(fieldValue);
         } else {
@@ -77,9 +98,11 @@ public class AppConfig {
             value.setValue(0);
           }
         }
+        System.out.println(String.format("2 %s = %s", value.getName(), value.getValue()));
         value.setName(field.getName());
         result.add(value);
-      } catch (IllegalAccessException e) {
+      } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+        e.printStackTrace();
       }
     }
     return result;
@@ -89,7 +112,8 @@ public class AppConfig {
     if (fieldMap.size() > 0) {
       return;
     }
-    for (Field field : getClass().getDeclaredFields()) {
+    final List<Field> allFields = getAllFields();
+    for (Field field : allFields) {
       fieldMap.put(field.getName(), field);
     }
   }

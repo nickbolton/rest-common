@@ -4,7 +4,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class AppConfigManager<T extends AppConfig> {
@@ -37,12 +39,18 @@ public class AppConfigManager<T extends AppConfig> {
 
 	private void fetchAppConfig(Class<T> clazz) {
 		appConfig = getInstanceOfT(clazz);
-		List<AppConfigValue> values = appConfigValueRepository.findAll();
-		if (values.size() <= 0) {
-			values = appConfig.toValues();
-			values = appConfigValueRepository.saveAll(values);
+		List<AppConfigValue> persistedValues = appConfigValueRepository.findAll();
+		List<AppConfigValue> defaultValues = appConfig.toValues();
+		Map<String, AppConfigValue> persistedMap = new HashMap<>();
+		for (AppConfigValue value: persistedValues) {
+			persistedMap.put(value.getName(), value);
 		}
-		for (AppConfigValue value: values) {
+		for (AppConfigValue value: defaultValues) {
+			if (!persistedMap.containsKey(value.getName())) {
+				persistedValues.add(appConfigValueRepository.save(value));
+			}
+		}
+		for (AppConfigValue value: persistedValues) {
 			appConfig.setValue(value);
 		}
 	}

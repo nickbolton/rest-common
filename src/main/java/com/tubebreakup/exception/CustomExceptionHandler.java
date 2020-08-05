@@ -1,5 +1,6 @@
 package com.tubebreakup.exception;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
@@ -16,12 +17,26 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import java.io.StringWriter;
 import java.util.Date;
 
 @ControllerAdvice
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
 
   private Logger logger = LoggerFactory.getLogger(getClass());
+
+  private void logResponse(ResponseEntity responseEntity) {
+    if (!logger.isDebugEnabled()) {
+      return;
+    }
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      StringWriter writer = new StringWriter();
+      mapper.writerWithDefaultPrettyPrinter().writeValue(writer, responseEntity);
+      logger.debug(new StringBuilder("\n").append(writer.toString()).toString());
+    } catch (Exception e) {
+    }
+  }
 
   @ExceptionHandler(Exception.class)
   @ResponseBody
@@ -30,7 +45,10 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), CommonErrors.UNKNOWN.value(),
         new Date(), ex.getMessage(), request.getDescription(false)));
-    return new ResponseEntity<ExceptionResponse>(response, status);
+
+    ResponseEntity<ExceptionResponse> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 
   @ExceptionHandler(InvalidGrantException.class)
@@ -39,7 +57,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), CommonErrors.UNKNOWN.value(),
             new Date(), ex.getMessage(), request.getDescription(false)));
-    return new ResponseEntity<ExceptionResponse>(response, status);
+    ResponseEntity<ExceptionResponse> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 
   @Override
@@ -49,7 +69,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     status = HttpStatus.BAD_REQUEST;
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), CommonErrors.INVALID_PAYLOAD.value(),
         new Date(), ex.getMessage(), request.getDescription(false)));
-    return new ResponseEntity<Object>(response, status);
+    ResponseEntity<Object> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 
   @ExceptionHandler(HttpServerErrorException.class)
@@ -60,7 +82,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), CommonErrors.UNKNOWN.value(),
         new Date(), ex.getMessage(), request.getDescription(false)));
-    return new ResponseEntity<ExceptionResponse>(response, status);
+    ResponseEntity<ExceptionResponse> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 
   @ExceptionHandler(Throwable.class)
@@ -70,7 +94,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), CommonErrors.UNKNOWN.value(),
         new Date(), ex.getMessage(), request.getDescription(false)));
-    return new ResponseEntity<ExceptionResponse>(response, status);
+    ResponseEntity<ExceptionResponse> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 
   @ExceptionHandler(ErrorCodedHttpException.class)
@@ -84,7 +110,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     HttpStatus status = ex.getHttpStatus();
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), ex.getErrorCode().value(),
         new Date(), message, request.getDescription(false)));
-    return new ResponseEntity<ExceptionResponse>(response, status);
+    ResponseEntity<ExceptionResponse> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 
   @ExceptionHandler(ResourceNotFoundException.class)
@@ -94,7 +122,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     HttpStatus status = HttpStatus.NOT_FOUND;
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(),
         CommonErrors.RESOURCE_NOT_FOUND.value(), new Date(), ex.getMessage(), request.getDescription(false)));
-    return new ResponseEntity<ExceptionResponse>(response, status);
+    ResponseEntity<ExceptionResponse> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 
   @Override
@@ -105,6 +135,8 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     status = HttpStatus.BAD_REQUEST;
     ExceptionResponse response = new ExceptionResponse(new ExceptionError(status.value(), CommonErrors.UNKNOWN.value(),
         new Date(), "Validation Failed", ex.getBindingResult().toString()));
-    return new ResponseEntity<Object>(response.getResponseBody(), status);
+    ResponseEntity<Object> responseEntity = new ResponseEntity<>(response, status);
+    logResponse(responseEntity);
+    return responseEntity;
   }
 }

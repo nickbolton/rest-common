@@ -1,10 +1,7 @@
 package com.tubebreakup.model.config;
 
-import com.tubebreakup.exception.CommonErrors;
-import com.tubebreakup.exception.ErrorCodedHttpException;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.http.HttpStatus;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;

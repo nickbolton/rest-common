@@ -1,6 +1,7 @@
 package com.tubebreakup.filter;
 
 import org.codehaus.jackson.map.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -15,12 +16,17 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.List;
 import java.util.Map;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Primary
 public class RequestLoggerFilter extends CommonsRequestLoggingFilter {
+
+    @Value("#{'${request.logger.user.agent.blacklist}'.split(',')}")
+    private List<String> userAgentBlacklist;
+
     @Override
     public void afterPropertiesSet() throws ServletException {
         super.afterPropertiesSet();
@@ -33,6 +39,15 @@ public class RequestLoggerFilter extends CommonsRequestLoggingFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        String userAgent = request.getHeader("User-Agent");
+        if (userAgent != null) {
+            for (String s: userAgentBlacklist) {
+                if (userAgent.contains(s)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+            }
+        }
         super.doFilterInternal(request, response, filterChain);
     }
 

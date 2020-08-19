@@ -59,6 +59,10 @@ public class RequestLoggerFilter extends CommonsRequestLoggingFilter {
             RequestPayload requestPayload = new RequestPayload();
             requestPayload.setUri(request.getRequestURI());
 
+            if (this.isIncludeQueryString()) {
+                requestPayload.setQueryString(request.getQueryString());
+            }
+
             if (this.isIncludeClientInfo()) {
                 requestPayload.setClient(request.getRemoteAddr());
                 HttpSession session = request.getSession(false);

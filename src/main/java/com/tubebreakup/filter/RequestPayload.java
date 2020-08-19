@@ -17,6 +17,7 @@ import java.util.Map;
 public class RequestPayload {
     private String uri;
     private HttpHeaders headers;
+    private String queryString;
     private String client;
     private String session;
     private String user;

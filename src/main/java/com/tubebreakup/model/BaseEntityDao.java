@@ -11,8 +11,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.util.StringUtils;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -27,9 +25,6 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
 
     @Autowired
     protected CacheManager cacheManager;
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     protected abstract String getCacheName();
     protected abstract AppConfig getAppConfig();
@@ -169,7 +164,6 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
             cache.evict(key);
             return null;
         }
-        entityManager.detach(entity);
         cache.put(new CacheEntry<>(key, entity));
         return entity;
     }
@@ -183,7 +177,6 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
             return;
         }
         T entity = optional.get();
-        entityManager.detach(entity);
         cache.put(new CacheEntry<>(key, entity));
     }
 
@@ -195,7 +188,6 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
             cache.evict(key);
             return null;
         }
-        detachList(entity);
         cache.putList(new CacheEntry<>(key, entity));
         return entity;
     }
@@ -208,7 +200,6 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
             cache.evict(key);
             return null;
         }
-        detachDoubleList(entity);
         cache.putDoubleList(new CacheEntry<>(key, entity));
         return entity;
     }
@@ -233,9 +224,7 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
                 log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
             }
         }
-        if (entity != null) {
-            entity = entityManager.merge(entity);
-        } else {
+        if (entity == null) {
             entity = updateCache(key, builder);
         }
         return entity != null ? Optional.of(entity) : Optional.empty();
@@ -261,9 +250,7 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
                 log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
             }
         }
-        if (entity != null) {
-            entity = entityManager.merge(entity);
-        } else {
+        if (entity == null) {
             entity = updateCacheOptional(key, builder);
         }
         return entity != null ? Optional.of(entity) : Optional.empty();
@@ -289,9 +276,7 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
                 log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
             }
         }
-        if (entity != null) {
-            entity = mergeList(entity);
-        } else {
+        if (entity == null) {
             entity = updateCacheList(key, builder);
         }
         return entity != null ? entity : Collections.emptyList();
@@ -317,9 +302,7 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
                 log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
             }
         }
-        if (entity != null) {
-            entity = mergeDoubleList(entity);
-        } else {
+        if (entity == null) {
             entity = updateCacheDoubleList(key, builder);
         }
         return entity != null ? entity : Collections.emptyList();
@@ -327,32 +310,24 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
 
     protected T updateCache(String key, CacheEntryBuilder<T> builder) {
         T entry = builder.build();
-        if (entry != null) {
-            entityManager.detach(entry);
-        }
         cache.put(key, entry);
         return entry;
     }
 
     protected T updateCacheOptional(String key, CacheEntryBuilder<Optional<T>> builder) {
         Optional<T> entry = builder.build();
-        if (entry != null && entry.isPresent()) {
-            entityManager.detach(entry.get());
-        }
         cache.putOptional(key, entry);
         return entry != null && entry.isPresent() ? entry.get() : null;
     }
 
     protected List<T> updateCacheList(String key, CacheEntryBuilder<List<T>> builder) {
         List<T> entry = builder.build();
-        detachList(entry);
         cache.putList(key, entry);
         return entry != null ? entry : Collections.emptyList();
     }
 
     protected List<List<T>> updateCacheDoubleList(String key, CacheEntryBuilder<List<List<T>>> builder) {
         List<List<T>> entry = builder.build();
-        detachDoubleList(entry);
         cache.putDoubleList(key, entry);
         return entry != null ? entry : Collections.emptyList();
     }
@@ -416,51 +391,5 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
         }
         cache.evict(compositeKey(entity.getUuid()));
         evictKeysForEntity(entity);
-    }
-
-    private void detachList(List<T> entities) {
-        if (entities == null) {
-            return;
-        }
-        for (T e: entities) {
-            entityManager.detach(e);
-        }
-    }
-
-    private void detachDoubleList(List<List<T>> entities) {
-        if (entities == null) {
-            return;
-        }
-        for (List<T> list: entities) {
-            for (T e: list) {
-                entityManager.detach(e);
-            }
-        }
-    }
-
-    private List<T> mergeList(List<T> entities) {
-        if (entities == null) {
-            return null;
-        }
-        List<T> result = new LinkedList<>();
-        for (T e: entities) {
-            result.add(entityManager.merge(e));
-        }
-        return result;
-    }
-
-    private List<List<T>> mergeDoubleList(List<List<T>> entities) {
-        if (entities == null) {
-            return null;
-        }
-        List<List<T>> result = new LinkedList<>();
-        for (List<T> list: entities) {
-            List<T> resultList = new LinkedList<>();
-            for (T e: list) {
-                resultList.add(entityManager.merge(e));
-            }
-            result.add(resultList);
-        }
-        return result;
     }
 }

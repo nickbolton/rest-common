@@ -1,5 +1,6 @@
 package com.tubebreakup.model.config;
 
+import com.tubebreakup.util.ClassUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +25,8 @@ public class AppConfigManager<T extends AppConfig> {
 
 	public T getAppConfig(Class<T> clazz) {
 		Long elapsedTime = new Date().getTime() - lastFetchTime;
-		Boolean needsFetch = (appConfig == null) || (elapsedTime > appConfig.getConfigTtl());
+		Long threshold = appConfig.getConfigTtl() * 60*1000; // convert min to millis
+		Boolean needsFetch = (appConfig == null) || (elapsedTime > threshold);
 		if (needsFetch) {
 			fetchAppConfig(clazz);
 		}
@@ -38,7 +40,7 @@ public class AppConfigManager<T extends AppConfig> {
 	}
 
 	private void fetchAppConfig(Class<T> clazz) {
-		appConfig = getInstanceOfT(clazz);
+		appConfig = ClassUtils.getInstanceOf(clazz);
 		List<AppConfigValue> persistedValues = appConfigValueRepository.findAll();
 		List<AppConfigValue> defaultValues = appConfig.toValues();
 		Map<String, AppConfigValue> persistedMap = new HashMap<>();
@@ -53,13 +55,6 @@ public class AppConfigManager<T extends AppConfig> {
 		for (AppConfigValue value: persistedValues) {
 			appConfig.setValue(value);
 		}
-	}
-
-	private T getInstanceOfT(Class<T> aClass) {
-		try {
-			return aClass.getDeclaredConstructor().newInstance();
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		lastFetchTime = new Date().getTime();
 	}
 }

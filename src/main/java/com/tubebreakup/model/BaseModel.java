@@ -1,8 +1,11 @@
 package com.tubebreakup.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.tubebreakup.model.cache.CacheableEntity;
+import com.tubebreakup.util.ClassUtils;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
 import org.springframework.data.annotation.CreatedDate;
@@ -21,7 +24,8 @@ import java.util.Date;
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
-public abstract class BaseModel implements Serializable {
+@NoArgsConstructor
+public abstract class BaseModel implements Serializable, CacheableEntity {
 
   @Id
   @GeneratedValue(generator = "UUID")
@@ -40,7 +44,16 @@ public abstract class BaseModel implements Serializable {
   @LastModifiedDate
   @ApiModelProperty(hidden = true)
   private Date updatedAt;
-    
+
+  public static <T extends BaseModel> T shallow(String uuid, Class<T> clazz) {
+    T result = ClassUtils.getInstanceOf(clazz);
+    result.setUuid(uuid);
+    return result;
+  }
+
+  public void prepareForCaching() {
+  }
+
   public final <T> void copyPatchableFields(T source, PropertySetterProvider setterProvider) {
     for(Field field  : getClass().getDeclaredFields()) {
         if (field.isAnnotationPresent(Patchable.class)) {
@@ -87,5 +100,9 @@ public abstract class BaseModel implements Serializable {
 
   protected String safeEntityId(BaseModel model) {
     return model != null ? model.getUuid() : "";
+  }
+
+  public BaseModel(String uuid) {
+    this.uuid = uuid;
   }
 }

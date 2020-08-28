@@ -12,4 +12,12 @@ public class ClassUtils {
             return false;
         }
     }
+
+    public static <T> T getInstanceOf(Class<T> aClass) {
+        try {
+            return aClass.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

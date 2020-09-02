@@ -1,6 +1,8 @@
-package com.tubebreakup.model;
+package com.tubebreakup.service;
 
+import com.tubebreakup.model.BaseModel;
 import com.tubebreakup.model.cache.CacheEntryBuilder;
+import com.tubebreakup.model.cache.DaoCache;
 import com.tubebreakup.model.config.AppConfig;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,7 +19,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T> {
+abstract public class BaseEntityService<T extends BaseModel> implements EntityService<T> {
 
     protected final String ALL_KEY = "ALL";
 

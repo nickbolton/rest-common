@@ -1,9 +1,11 @@
-package com.tubebreakup.model;
+package com.tubebreakup.service;
+
+import com.tubebreakup.model.BaseModel;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface EntityDao<T extends BaseModel> {
+public interface EntityService<T extends BaseModel> {
   
   public T save(T entity);
 

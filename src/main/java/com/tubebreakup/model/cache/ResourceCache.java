@@ -1,7 +1,5 @@
 package com.tubebreakup.model.cache;
 
-import com.tubebreakup.model.BaseModel;
-
 import java.util.List;
 
 public interface ResourceCache {

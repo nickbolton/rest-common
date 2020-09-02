@@ -1,206 +1,56 @@
 package com.tubebreakup.model.cache;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.support.NoOpCache;
+import com.tubebreakup.model.BaseModel;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
-public class DaoCache<T> {
+@Service
+public class DaoCache {
 
-    private CacheManager cacheManager;
-    private String namespace;
-    private Cache noOpCache;
+    private final String ENTITY_CACHE_NAME = "EntityCache";
 
-    @Getter
-    @Setter
-    private Boolean enabled = false;
-
-    private Cache getCache() {
-        if (!enabled) {
-            return noOpCache;
-        }
-        Cache result = cacheManager.getCache(namespace);
-        if (result == null) {
-            result = noOpCache;
-        }
-        return result;
+    public String getCacheName() {
+        return ENTITY_CACHE_NAME;
     }
 
-    public T get(String key) {
-        if (key == null) {
-            return null;
+    @Cacheable(cacheNames = ENTITY_CACHE_NAME, key = "#key", unless = "#result == null")
+    public <T> T get(String key, CacheEntryBuilder<T> builder, Boolean[] didMiss) {
+        if (didMiss != null && didMiss.length > 0) {
+            didMiss[0] = true;
         }
-        Cache.ValueWrapper wrapper = getCache().get(key);
-        if (wrapper == null) {
-            return null;
-        }
-        return (T)wrapper.get();
+        return builder.build();
     }
 
-    public List<T> getList(String key) {
-        if (key == null) {
-            return Collections.emptyList();
+    @Cacheable(cacheNames = ENTITY_CACHE_NAME, key = "#key", unless = "#result == null")
+    public <T> T getOptional(String key, CacheEntryBuilder<Optional<T>> builder, Boolean[] didMiss) {
+        if (didMiss != null && didMiss.length > 0) {
+            didMiss[0] = true;
         }
-        Cache.ValueWrapper wrapper = getCache().get(key);
-        if (wrapper == null) {
-            return null;
-        }
-        Object result = wrapper.get();
-        if (result instanceof List) {
-            return (List<T>)result;
-        }
-        return null;
+        Optional<T> optional = builder.build();
+        return optional.isPresent() ? optional.get() : null;
     }
 
-    public List<List<T>> getDoubleList(String key) {
-        if (key == null) {
-            return Collections.emptyList();
-        }
-        Cache.ValueWrapper wrapper = getCache().get(key);
-        if (wrapper == null) {
-            return null;
-        }
-        Object result = wrapper.get();
-        if (result instanceof List) {
-            return (List<List<T>>)result;
-        }
-        return null;
+    @CachePut(cacheNames = ENTITY_CACHE_NAME, key = "#key", unless = "#result == null")
+    public <T extends BaseModel> T put(String key, T entity) {
+        return entity;
     }
 
-    public void put(CacheEntry<T> entry) {
-        if (entry.getKey() == null) {
-            return;
-        }
-        put(entry.getKey(), entry.getEntry());
+    @CachePut(cacheNames = ENTITY_CACHE_NAME, key = "#key", unless = "#result == null")
+    public <T extends BaseModel> List<T> putList(String key, List<T> list) {
+        return list;
     }
 
-    public void put(String key, T entry) {
-        if (key == null) {
-            return;
-        }
-        if (entry != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE PUT {}::{} {}", namespace, key, entry);
-            }
-            if (entry instanceof CacheableEntity) {
-                ((CacheableEntity)entry).prepareForCaching();
-            }
-            getCache().put(key, entry);
-        } else {
-            remove(key);
-        }
+    @CachePut(cacheNames = ENTITY_CACHE_NAME, key = "#key", unless = "#result == null")
+    public <T extends BaseModel> List<List<T>> putDoubleList(String key, List<List<T>> doubleList) {
+        return doubleList;
     }
 
-    public void putOptional(CacheEntry<Optional<T>> entry) {
-        if (entry.getKey() == null) {
-            return;
-        }
-        putOptional(entry.getKey(), entry.getEntry());
-    }
-
-    public void putOptional(String key, Optional<T> entry) {
-        if (key == null) {
-            return;
-        }
-        if (entry != null && entry.isPresent()) {
-            T entity = entry.get();
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE PUT {}::{} {}", namespace, key, entity);
-            }
-            if (entity instanceof CacheableEntity) {
-                ((CacheableEntity)entity).prepareForCaching();
-            }
-            getCache().put(key, entity);
-        } else {
-            remove(key);
-        }
-    }
-
-    public void putList(CacheEntry<List<T>> entry) {
-        if (entry.getKey() == null) {
-            return;
-        }
-        putList(entry.getKey(), entry.getEntry());
-    }
-
-    public void putList(String key, List<T> list) {
-        if (key == null) {
-            return;
-        }
-        if (list != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE PUT {}::{} {}", namespace, key, list);
-            }
-            for (T entity: list) {
-                if (entity instanceof CacheableEntity) {
-                    ((CacheableEntity)entity).prepareForCaching();
-                }
-            }
-            getCache().put(key, list);
-        } else {
-            remove(key);
-        }
-    }
-
-    public void putDoubleList(CacheEntry<List<List<T>>> entry) {
-        if (entry.getKey() == null) {
-            return;
-        }
-        putDoubleList(entry.getKey(), entry.getEntry());
-    }
-
-    public void putDoubleList(String key, List<List<T>> doubleList) {
-        if (key == null) {
-            return;
-        }
-        if (doubleList != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE PUT {}::{} {}", namespace, key, doubleList);
-            }
-            for (List<T> list: doubleList) {
-                for (T entity: list) {
-                    if (entity instanceof CacheableEntity) {
-                        ((CacheableEntity)entity).prepareForCaching();
-                    }
-                }
-            }
-            getCache().put(key, doubleList);
-        } else {
-            remove(key);
-        }
-    }
-
-    public void remove(String key) {
-        evict(key);
-    }
-
-    public void evictAll() {
-        if (log.isDebugEnabled()) {
-            log.debug("CACHE EVICT ALL {}", namespace);
-        }
-        getCache().clear();
-    }
-
+    @CacheEvict(cacheNames = ENTITY_CACHE_NAME, key = "#key")
     public void evict(String key) {
-        if (key == null) {
-            return;
-        }
-        if (log.isDebugEnabled()) {
-            log.debug("CACHE EVICT {}::{}", namespace, key);
-        }
-        getCache().evict(key);
-    }
-
-    public DaoCache(String namespace, CacheManager cacheManager) {
-        this.namespace = namespace;
-        this.cacheManager = cacheManager;
-        noOpCache = new NoOpCache(namespace);
     }
 }

@@ -1,7 +1,6 @@
 package com.tubebreakup.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.tubebreakup.model.cache.CacheableEntity;
 import com.tubebreakup.util.ClassUtils;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Getter;
@@ -25,7 +24,7 @@ import java.util.Date;
 @Getter
 @Setter
 @NoArgsConstructor
-public abstract class BaseModel implements Serializable, CacheableEntity {
+public abstract class BaseModel implements Serializable {
 
   @Id
   @GeneratedValue(generator = "UUID")
@@ -49,9 +48,6 @@ public abstract class BaseModel implements Serializable, CacheableEntity {
     T result = ClassUtils.getInstanceOf(clazz);
     result.setUuid(uuid);
     return result;
-  }
-
-  public void prepareForCaching() {
   }
 
   public final <T> void copyPatchableFields(T source, PropertySetterProvider setterProvider) {

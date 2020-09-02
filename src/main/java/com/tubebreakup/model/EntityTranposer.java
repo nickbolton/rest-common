@@ -1,4 +1,4 @@
-package com.tubebreakup.model.cache;
+package com.tubebreakup.model;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;

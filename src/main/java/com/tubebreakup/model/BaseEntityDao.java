@@ -1,12 +1,12 @@
 package com.tubebreakup.model;
 
-import com.tubebreakup.model.cache.CacheEntry;
 import com.tubebreakup.model.cache.CacheEntryBuilder;
-import com.tubebreakup.model.cache.DaoCache;
 import com.tubebreakup.model.config.AppConfig;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.util.StringUtils;
@@ -17,53 +17,42 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>, InitializingBean {
+abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T> {
 
     protected final String ALL_KEY = "ALL";
-
-    private DaoCache<T> cache;
 
     @Autowired
     protected CacheManager cacheManager;
 
-    protected abstract String getCacheName();
+    @Autowired
+    private DaoCache daoCache;
+
+    @Getter
+    @Setter
+    private Boolean isCacheEnabled = false;
+
+    protected abstract String getCacheNamespace();
+    protected abstract String getEntityName();
     protected abstract AppConfig getAppConfig();
     protected abstract JpaRepository<T, String> getRepository();
     protected abstract void evictKeysForEntity(T entity);
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        cache = new DaoCache<>(getCacheName(), cacheManager);
+    private Boolean getCacheEnabled() {
+        return getAppConfig().getEntityCacheEnabled() && isCacheEnabled;
     }
 
-    public Boolean getShouldCache() {
-        return cache != null ? cache.getEnabled() : false;
+    public String compositeKey(String key) {
+        return new StringBuilder(getCacheNamespace()).append(':').append(getEntityName()).append(':').append(key).toString();
     }
 
-    public void setShouldCache(Boolean b) {
-        if (cache == null) {
-            return;
-        }
-        cache.setEnabled(b);
-    }
-
-    protected String compositeKey(String key) {
-        if (key == null) {
-            return null;
-        }
-        return new StringBuilder(getCacheName())
-                .append(':').append(key)
-                .toString();
-    }
-
-    protected String compositeKey(String[] keys) {
+    public String compositeKey(String[] keys) {
         if (keys == null || keys.length <= 0) {
             return null;
         }
         StringBuilder builder = null;
-        for (String key: keys) {
+        for (String key : keys) {
             if (builder == null) {
-                builder = new StringBuilder(getCacheName()).append(':');
+                builder = new StringBuilder(getCacheNamespace()).append(':').append(getEntityName()).append(':');
             } else {
                 builder.append('.');
             }
@@ -72,24 +61,24 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
         return builder.toString();
     }
 
-    protected String compositeKey(BaseModel entity) {
+    public String compositeKey(BaseModel entity) {
         if (entity == null) {
             return null;
         }
-        return new StringBuilder(getCacheName())
-                .append(':').append(entity.getClass().getSimpleName())
+        return new StringBuilder(getCacheNamespace())
+                .append(':').append(getEntityName())
                 .append('-').append(entity.getUuid())
                 .toString();
     }
 
-    protected String compositeKey(BaseModel[] entities) {
+    public String compositeKey(BaseModel[] entities) {
         if (entities == null || entities.length <= 0) {
             return null;
         }
         StringBuilder builder = null;
-        for (BaseModel e: entities) {
+        for (BaseModel e : entities) {
             if (builder == null) {
-                builder = new StringBuilder(getCacheName()).append(':');
+                builder = new StringBuilder(getCacheNamespace()).append(':').append(getEntityName()).append(':');
             } else {
                 builder.append('.');
             }
@@ -98,20 +87,20 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
         return builder.toString();
     }
 
-    protected String compositeKey(BaseModel[] entities, String[] keys) {
+    public String compositeKey(BaseModel[] entities, String[] keys) {
         if (entities == null || entities.length <= 0 || keys == null || keys.length <= 0) {
             return null;
         }
         StringBuilder builder = null;
-        for (BaseModel e: entities) {
+        for (BaseModel e : entities) {
             if (builder == null) {
-                builder = new StringBuilder(getCacheName()).append(':');
+                builder = new StringBuilder(getCacheNamespace()).append(':').append(getEntityName()).append(':');
             } else {
                 builder.append('.');
             }
             builder.append(e.getClass().getSimpleName()).append('-').append(e.getUuid());
         }
-        for (String key: keys) {
+        for (String key : keys) {
             builder.append('.').append(key);
         }
         return builder.toString();
@@ -140,12 +129,23 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
         return getRepository().findAll();
     }
 
-    public T save(T entity) {
-        if (entity == null) {
+    public T save(String key, T entity) {
+        evict(entity);
+        if (key == null || entity == null) {
+            if (getCacheEnabled() && key != null) {
+                daoCache.evict(key);
+            }
             return null;
         }
-        evict(entity);
-        return put(entity.getUuid(), getRepository().save(entity));
+        T result = getRepository().save(entity);
+        if (getCacheEnabled()) {
+            daoCache.put(key, result);
+        }
+        return result;
+    }
+
+    public T save(T entity) {
+        return save(compositeKey(entity), entity);
     }
 
     public void deleteById(String id) {
@@ -153,187 +153,100 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
         if (optional.isPresent()) {
             delete(optional.get());
         }
-        evict(id);
+        String key = compositeKey(id);
+        if (getCacheEnabled()) {
+            daoCache.evict(key);
+        }
     }
 
-    public T put(String key, T entity) {
+    private <E> E performGet(String key, CacheEntryBuilder<E> builder) {
         if (key == null) {
-            return entity;
-        }
-        if (entity == null) {
-            cache.evict(key);
             return null;
         }
-        cache.put(new CacheEntry<>(key, entity));
-        return entity;
-    }
-
-    public void put(String key, Optional<T> optional) {
-        if (key == null) {
-            return;
-        }
-        if (optional == null || !optional.isPresent()) {
-            cache.evict(key);
-            return;
-        }
-        T entity = optional.get();
-        cache.put(new CacheEntry<>(key, entity));
-    }
-
-    public List<T> put(String key, List<T> entity) {
-        if (key == null) {
-            return entity;
-        }
-        if (entity == null) {
-            cache.evict(key);
-            return null;
-        }
-        cache.putList(new CacheEntry<>(key, entity));
-        return entity;
-    }
-
-    public List<List<T>> putDoubleList(String key, List<List<T>> entity) {
-        if (key == null) {
-            return entity;
-        }
-        if (entity == null) {
-            cache.evict(key);
-            return null;
-        }
-        cache.putDoubleList(new CacheEntry<>(key, entity));
-        return entity;
-    }
-
-    protected Optional<T> getFromCacheWithFallback(String key, CacheEntryBuilder<T> builder) {
-        if (key == null) {
-            return Optional.empty();
-        }
-        T entity = null;
-        Boolean cacheEnabled = getAppConfig().getEntityCacheEnabled();
-        if (cacheEnabled) {
-            entity = cache.get(key);
+        if (getCacheEnabled()) {
+            E entity;
+            Boolean[] didMiss = new Boolean[]{false};
+            entity = daoCache.get(key, builder, didMiss);
             if (log.isDebugEnabled()) {
-                if (entity != null) {
-                    log.debug("CACHE HIT {}::{} {}", getCacheName(), key, entity);
+                if (didMiss[0]) {
+                    log.debug("CACHE MISS {}::{}", daoCache.getCacheName(), key);
                 } else {
-                    log.debug("CACHE MISS {}::{}", getCacheName(), key);
+                    log.debug("CACHE HIT {}::{} {}", daoCache.getCacheName(), key, entity);
                 }
             }
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
+            if (entity == null) {
+                daoCache.evict(key);
             }
+            return entity;
         }
-        if (entity == null) {
-            entity = updateCache(key, builder);
+
+        if (log.isDebugEnabled()) {
+            log.debug("CACHE DISABLED {}::{}", daoCache.getCacheName(), key);
         }
+        return builder.build();
+    }
+
+    public T getEntityFromCacheWithFallback(String key, CacheEntryBuilder<T> builder) {
+        return performGet(key, builder);
+    }
+
+    public T getOptionalEntityFromCacheWithFallback(String key, CacheEntryBuilder<Optional<T>> builder) {
+        if (key == null) {
+            return null;
+        }
+        if (getCacheEnabled()) {
+            T entity;
+            Boolean[] didMiss = new Boolean[]{false};
+            entity = daoCache.getOptional(key, builder, didMiss);
+            if (log.isDebugEnabled()) {
+                if (didMiss[0]) {
+                    log.debug("CACHE MISS {}::{}", daoCache.getCacheName(), key);
+                } else {
+                    log.debug("CACHE HIT {}::{} {}", daoCache.getCacheName(), key, entity);
+                }
+            }
+            if (entity == null) {
+                daoCache.evict(key);
+            }
+            return entity;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("CACHE DISABLED {}::{}", daoCache.getCacheName(), key);
+        }
+
+        Optional<T> optional = builder.build();
+        return optional.isPresent() ? optional.get() : null;
+    }
+
+    public Optional<T> getFromCacheWithFallback(String key, CacheEntryBuilder<T> builder) {
+        T entity = getEntityFromCacheWithFallback(key, builder);
         return entity != null ? Optional.of(entity) : Optional.empty();
     }
 
-    protected Optional<T> getOptionalFromCacheWithFallback(String key, CacheEntryBuilder<Optional<T>> builder) {
-        if (key == null) {
-            return Optional.empty();
-        }
-        T entity = null;
-        Boolean cacheEnabled = getAppConfig().getEntityCacheEnabled();
-        if (cacheEnabled) {
-            entity = cache.get(key);
-            if (log.isDebugEnabled()) {
-                if (entity != null) {
-                    log.debug("CACHE HIT {}::{} {}", getCacheName(), key, entity);
-                } else {
-                    log.debug("CACHE MISS {}::{}", getCacheName(), key);
-                }
-            }
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
-            }
-        }
-        if (entity == null) {
-            entity = updateCacheOptional(key, builder);
-        }
+    public Optional<T> getOptionalFromCacheWithFallback(String key, CacheEntryBuilder<Optional<T>> builder) {
+        T entity = getOptionalEntityFromCacheWithFallback(key, builder);
         return entity != null ? Optional.of(entity) : Optional.empty();
     }
 
-    protected List<T> getListFromCacheWithFallback(String key, CacheEntryBuilder builder) {
+    public List<T> getListFromCacheWithFallback(String key, CacheEntryBuilder<List<T>> builder) {
         if (key == null) {
             return Collections.emptyList();
         }
-        List<T> entity = null;
-        Boolean cacheEnabled = getAppConfig().getEntityCacheEnabled();
-        if (cacheEnabled) {
-            entity = cache.getList(key);
-            if (log.isDebugEnabled()) {
-                if (entity != null) {
-                    log.debug("CACHE HIT {}::{} {}", getCacheName(), key, entity);
-                } else {
-                    log.debug("CACHE MISS {}::{}", getCacheName(), key);
-                }
-            }
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
-            }
-        }
-        if (entity == null) {
-            entity = updateCacheList(key, builder);
-        }
-        return entity != null ? entity : Collections.emptyList();
+        List<T> list = performGet(key, builder);
+        return list != null ? list : Collections.emptyList();
     }
 
-    protected List<List<T>> getDoubleListFromCacheWithFallback(String key, CacheEntryBuilder builder) {
+    protected List<List<T>> getDoubleListFromCacheWithFallback(String key, CacheEntryBuilder<List<List<T>>> builder) {
         if (key == null) {
             return Collections.emptyList();
         }
-        List<List<T>> entity = null;
-        Boolean cacheEnabled = getAppConfig().getEntityCacheEnabled();
-        if (cacheEnabled) {
-            entity = cache.getDoubleList(key);
-            if (log.isDebugEnabled()) {
-                if (entity != null) {
-                    log.debug("CACHE HIT {}::{} {}", getCacheName(), key, entity);
-                } else {
-                    log.debug("CACHE MISS {}::{}", getCacheName(), key);
-                }
-            }
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("CACHE DISABLED {}::{}", getCacheName(), key);
-            }
-        }
-        if (entity == null) {
-            entity = updateCacheDoubleList(key, builder);
-        }
-        return entity != null ? entity : Collections.emptyList();
-    }
-
-    protected T updateCache(String key, CacheEntryBuilder<T> builder) {
-        T entry = builder.build();
-        cache.put(key, entry);
-        return entry;
-    }
-
-    protected T updateCacheOptional(String key, CacheEntryBuilder<Optional<T>> builder) {
-        Optional<T> entry = builder.build();
-        cache.putOptional(key, entry);
-        return entry != null && entry.isPresent() ? entry.get() : null;
-    }
-
-    protected List<T> updateCacheList(String key, CacheEntryBuilder<List<T>> builder) {
-        List<T> entry = builder.build();
-        cache.putList(key, entry);
-        return entry != null ? entry : Collections.emptyList();
-    }
-
-    protected List<List<T>> updateCacheDoubleList(String key, CacheEntryBuilder<List<List<T>>> builder) {
-        List<List<T>> entry = builder.build();
-        cache.putDoubleList(key, entry);
-        return entry != null ? entry : Collections.emptyList();
+        List<List<T>> list = performGet(key, builder);
+        return list != null ? list : Collections.emptyList();
     }
 
     public List<T> findAll() {
-        return getListFromCacheWithFallback(ALL_KEY, () -> new CacheEntry(ALL_KEY, fetchAll()));
+        return getListFromCacheWithFallback(ALL_KEY, () -> fetchAll());
     }
 
     @Override
@@ -378,18 +291,24 @@ abstract public class BaseEntityDao<T extends BaseModel> implements EntityDao<T>
     }
 
     public void evictAll() {
-        cache.evictAll();
-    }
-
-    protected void evict(String key) {
-        cache.evict(key);
+        getEntityCache().clear();
     }
 
     protected void evict(T entity) {
-        if (entity == null) {
+        if (entity == null || !getCacheEnabled()) {
             return;
         }
-        cache.evict(compositeKey(entity.getUuid()));
+        daoCache.evict(compositeKey(entity.getUuid()));
         evictKeysForEntity(entity);
+    }
+
+    public void evict(String key) {
+        if (getCacheEnabled()) {
+            daoCache.evict(key);
+        }
+    }
+
+    private Cache getEntityCache() {
+        return cacheManager.getCache(daoCache.getCacheName());
     }
 }

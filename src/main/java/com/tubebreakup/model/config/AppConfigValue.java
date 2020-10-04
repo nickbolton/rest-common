@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.validation.constraints.NotNull;
 
 @Entity
 @Getter
@@ -13,8 +14,10 @@ import javax.persistence.Entity;
 public class AppConfigValue extends BaseModel {
     private static final long serialVersionUID = 2367543016384257535L;
 
+    @NotNull
     @Column(unique = true)
     private String name;
+
     private String value;
 
     public void setValue(Object value) {

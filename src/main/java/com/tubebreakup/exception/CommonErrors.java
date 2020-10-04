@@ -17,6 +17,7 @@ public enum CommonErrors implements ErrorCode {
 
     // authentication
     BAD_CREDENTIALS(-2000, "Bad credentials"),
+    INSUFFICENT_ROLE(-2001, "Insufficent role"),
 
     // user requests
     INVALID_USER_REQUEST(-3000, "Invalid user request"),

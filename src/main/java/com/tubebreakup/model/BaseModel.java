@@ -30,6 +30,7 @@ public abstract class BaseModel implements Serializable {
   @GeneratedValue(generator = "UUID")
   @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
   @ApiModelProperty(hidden = true)
+  @Column(length = 50)
   private String uuid;
 
   @Temporal(TemporalType.TIMESTAMP)
